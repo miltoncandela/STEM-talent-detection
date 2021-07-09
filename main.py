@@ -52,6 +52,8 @@ def getDF(tipo, carpeta):
 #dfPPG3 = dfEMP('Resultados Tercera Toma')
 dfPPG4 = getDF('Empatica', 'Resultados Cuarta Toma')
 dfCV4 = getDF('Emociones', 'Resultados Cuarta Toma DLIB')
+print(dfPPG4)
+print(dfCV4)
 
 #print(dfPPG1)
 #print(dfPPG2)
@@ -80,6 +82,7 @@ def CombDFs(dfPPG, dfCV):
     columnas = dfPPG.columns
     dfPPG = pd.DataFrame(StandardScaler().fit_transform(dfPPG))
     dfPPG.columns = columnas
+    #print(dfPPG.describe())
     dfPPG = dfPPG.applymap(sigmoid)
 
     dfCV['Minute'] = (dfCV.Second/60).apply(math.ceil)
@@ -93,20 +96,49 @@ def CombDFs(dfPPG, dfCV):
 
     return(dfcomb)
 combdf = CombDFs(dfPPG4, dfCV4)
+print(combdf)
+print(combdf.describe())
 
 from sklearn.decomposition import PCA
 
 pca = PCA(2)
 
 df = pca.fit_transform(combdf)
+print(df)
+
+from sklearn.metrics import silhouette_score
+
+k_max = 10
+scores = [silhouette_score(df, KMeans(n_clusters = n).fit(df).labels_) for n in range(2,k_max)]
+inertias = [KMeans(n_clusters = n).fit(df).inertia_ for n in range(2,k_max)]
+
+import matplotlib.pyplot as plt
+
+plt.scatter(df[:,0] , df[:,1])
+plt.title('Datos procesados de $\it{Empatica}$ y $\it{VC}$ para la cuarta toma')
+plt.xlabel('PCA 1')
+plt.ylabel('PCA 2')
+plt.show()
+
+plt.plot(range(2,k_max), scores, 'co-', linewidth = 2, markersize = 7)
+plt.title('Silhouette score respecto a k')
+plt.xlabel('k')
+plt.ylabel('Silhouette score')
+plt.legend()
+plt.show()
+
+plt.plot(range(2,k_max), inertias, 'co-', linewidth = 2, markersize = 7)
+plt.title('Inertia respecto a k')
+plt.xlabel('k')
+plt.ylabel('Inertia')
+plt.legend()
+plt.show()
 
 modelo = KMeans(n_clusters = 3).fit(df)
 labels = modelo.predict(df)
 
 centroids = modelo.cluster_centers_
 u_labels = np.unique(labels)
-
-import matplotlib.pyplot as plt
 
 for i in u_labels:
     plt.scatter(df[labels == i , 0] , df[labels == i , 1] , label = 'Clase ' + str(i))
