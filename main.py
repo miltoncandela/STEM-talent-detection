@@ -10,8 +10,8 @@ import math
 import os
 from sklearn.cluster import KMeans
 
-dfPPG = pd.read_csv('datos1/DJ01-EM01-A_ppgResults.csv', na_values =  '--')
-dfCV = pd.read_csv('datos1/DJ01-VI01-A_dlib.csv')
+#dfPPG = pd.read_csv('datos1/DJ01-EM01-A_ppgResults.csv', na_values =  '--')
+#dfCV = pd.read_csv('datos1/DJ01-VI01-A_dlib.csv')
 
 #pd.set_option('display.max_rows', 500)
 
@@ -47,13 +47,29 @@ def getDF(tipo, carpeta):
     #df.index = range(0, len(df.iloc[:, 1]))
     return(df)
 
-#dfPPG1 = dfEMP('Resultados Primera Toma')
-#dfPPG2 = dfEMP('Resultados Segunda Toma')
-#dfPPG3 = dfEMP('Resultados Tercera Toma')
+dfPPG1 = getDF('Empatica', 'Resultados Primera Toma')
+dfPPG2 = getDF('Empatica', 'Resultados Segunda Toma')
+dfPPG3 = getDF('Empatica', 'Resultados Tercera Toma')
 dfPPG4 = getDF('Empatica', 'Resultados Cuarta Toma')
+dfCV1 = getDF('Emociones', 'Resultados Primera Toma DLIB')
+dfCV2 = getDF('Emociones', 'Resultados Segunda Toma DLIB')
+dfCV3 = getDF('Emociones', 'Resultados Tercera Toma DLIB')
 dfCV4 = getDF('Emociones', 'Resultados Cuarta Toma DLIB')
-print(dfPPG4)
-print(dfCV4)
+
+dfPPG = pd.concat([dfPPG1, dfPPG2, dfPPG3, dfPPG4], ignore_index = True)
+dfCV = pd.concat([dfCV1, dfCV2, dfCV3, dfCV4], ignore_index = True)
+
+dfPPG.dropna(axis = 0, how='any', inplace = True)
+dfCV.dropna(axis = 0, how='any', inplace = True)
+
+dfPPG.dropna(axis = 1, how='any', inplace = True)
+dfCV.dropna(axis = 1, how='any', inplace = True)
+
+dfPPG.index = range(len(dfPPG.index))
+dfCV.index = range(len(dfCV.index))
+
+print(dfPPG)
+print(dfCV)
 
 #print(dfPPG1)
 #print(dfPPG2)
@@ -95,7 +111,7 @@ def CombDFs(dfPPG, dfCV):
     dfcomb = pd.concat([dfPPG, proporciones], axis = 1)
 
     return(dfcomb)
-combdf = CombDFs(dfPPG4, dfCV4)
+combdf = CombDFs(dfPPG, dfCV)
 print(combdf)
 print(combdf.describe())
 
@@ -134,16 +150,16 @@ plt.ylabel('Inertia')
 plt.legend()
 plt.show()
 
-modelo = KMeans(n_clusters = 3).fit(df)
+modelo = KMeans(n_clusters = 5).fit(df)
 labels = modelo.predict(df)
 
 centroids = modelo.cluster_centers_
 u_labels = np.unique(labels)
 
 for i in u_labels:
-    plt.scatter(df[labels == i , 0] , df[labels == i , 1] , label = 'Clase ' + str(i))
+    plt.scatter(df[labels == i , 0] , df[labels == i , 1] , label = 'Class ' + str(i))
 plt.scatter(centroids[:,0] , centroids[:,1] , s = 80, color = 'k')
-plt.title('Datos procesados de $\it{Empatica}$ y $\it{VC}$ para la cuarta toma')
+plt.title('Processed $\it{Empatica}$ and $\it{CV}$ (Emotions)')
 plt.xlabel('PCA 1')
 plt.ylabel('PCA 2')
 plt.legend()
