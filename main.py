@@ -131,7 +131,7 @@ inertias = [KMeans(n_clusters = n).fit(df).inertia_ for n in range(2,k_max)]
 import matplotlib.pyplot as plt
 
 plt.scatter(df[:,0] , df[:,1])
-plt.title('Datos procesados de $\it{Empatica}$ y $\it{VC}$ para la cuarta toma')
+plt.title('Datos procesados de $\it{Empatica}$ y $\it{VC}$')
 plt.xlabel('PCA 1')
 plt.ylabel('PCA 2')
 plt.show()
@@ -159,7 +159,7 @@ u_labels = np.unique(labels)
 for i in u_labels:
     plt.scatter(df[labels == i , 0] , df[labels == i , 1] , label = 'Class ' + str(i))
 plt.scatter(centroids[:,0] , centroids[:,1] , s = 80, color = 'k')
-plt.title('Processed $\it{Empatica}$ and $\it{CV}$ (Emotions)')
+plt.title('Datos procesados de $\it{Empatica}$ y $\it{VC}$')
 plt.xlabel('PCA 1')
 plt.ylabel('PCA 2')
 plt.legend()
