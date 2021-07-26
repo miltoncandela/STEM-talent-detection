@@ -55,15 +55,21 @@ def getDFTomas(tipo, carpetas):
     df.index = range(len(df.index))
     return(df, l)
 
-dfPPG, l_PPG = getDFTomas('Empatica',['Resultados Primera Toma'])
+dfPPG, l_PPG = getDFTomas('Empatica',['Resultados Primera Toma', 'Resultados Segunda Toma', 'Resultados Cuarta Toma'])
 dfEEG, l_EEG = getDFTomas('EEG',['Toma 1', 'Toma 2', 'Toma 4'])
-dfCV, l_CV = getDFTomas('Emociones',['Resultados Primera Toma DLIB'])
+dfCV, l_CV = getDFTomas('Emociones',['Resultados Primera Toma DLIB', 'Resultados Segunda Toma DLIB', 'Resultados Cuarta Toma DLIB'])
 
 def filtDF(df, nombre, num, toma):
-    df = df[(df.Nombre == nombre) & (df.Num == num) & (df.Toma == toma)]
+    valores = [nombre, num, toma]
+    col_name = ['Nombre', 'Num', 'Toma']
+    for i, val in enumerate(valores):
+        if val is None:
+            continue
+        else:
+            df = df[df[col_name[i]] == val]
     df.index = range(df.shape[0])
     return(df)
-nombre, num, toma = ('ST', 1, 1)
+nombre, num, toma = (None, None, 2)
 dfCV, dfEEG, dfPPG = map(filtDF, [dfCV, dfEEG, dfPPG], [nombre] * 3, [num] * 3, [toma] * 3)
 
 print(dfEEG.shape, dfPPG.shape, dfCV.shape)
@@ -74,10 +80,26 @@ print(dfEEG)
 print(goodIDX)
 dfEEG = dfEEG.iloc[goodIDX, :]
 
+file1 = open('columnasEEG.txt', 'r')
+columnasEEG = str(file1.readlines()).strip("[]'").split(',')
+file1.close()
+
+file1 = open('columnasPPG.txt', 'r')
+columnasPPG = str(file1.readlines()).strip("[]'").split(',')
+file1.close()
+
+print(columnasPPG)
+print(columnasEEG)
+
+dfEEG = dfEEG[columnasEEG]
+dfPPG = dfPPG[columnasPPG]
+
 print(dfEEG.shape, dfPPG.shape, dfCV.shape)
 print(dfEEG.head())
 print(dfPPG.head())
 print(dfCV.head())
+
+from pickle import load
 
 def sigmoid(x):
     return(1/(1+np.exp(x)))
@@ -101,15 +123,16 @@ def CombDFs(dfPPG, dfCV, dfEEG):
 
     del dfPPG['Segment_Indices']
 
-    def df_to_prom(df):
+    def df_to_prom(df, ID):
         df.drop(['Nombre', 'Num', 'Toma', 'Ses'], axis=1, inplace=True)
         columnas = df.columns
-        df = pd.DataFrame(StandardScaler().fit_transform(df))
+        escalador = load(open('esc' + ID + '.pkl', 'rb'))
+        df = pd.DataFrame(escalador.transform(df))
         df.columns = columnas
         df = df.applymap(sigmoid)
         return(df)
-    dfPPG = df_to_prom(dfPPG)
-    dfEEG = df_to_prom(dfEEG)
+    dfPPG = df_to_prom(dfPPG, 'PPG')
+    dfEEG = df_to_prom(dfEEG, 'EEG')
     print(dfEEG)
     dfCV['Minute'] = (dfCV.Second/60).apply(math.ceil)
     dfCV['Bin'] = pd.cut(x = dfCV.Minute, bins = len(dfPPG.index), labels = [x for x in range(1, len(dfPPG.index) + 1)])
@@ -127,8 +150,8 @@ from sklearn.decomposition import PCA
 df = PCA(2).fit_transform(combdf)
 
 pred = modelo.predict(df)
-
+print(pred)
 print({'Probability_0' : str(round((pred == 0).sum()/len(pred) * 100, 2)) + ' %',
        'Probability_1': str(round((pred == 1).sum()/len(pred) * 100, 2)) + ' %',
        'Probability_2': str(round((pred == 2).sum()/len(pred) * 100, 2)) + ' %',
-       'Mode': pred[np.argmax(pred)]})
+       'Mode': max(set(list(pred)), key = list(pred).count)})

@@ -74,6 +74,16 @@ print(dfEEG.head())
 print(dfPPG.head())
 print(dfCV.head())
 
+file1 = open("columnasPPG.txt","w")
+file1.writelines(','.join(dfPPG.columns))
+file1.close()
+
+file1 = open("columnasEEG.txt","w")
+file1.writelines(','.join(dfEEG.columns))
+file1.close()
+
+from pickle import dump
+
 def sigmoid(x):
     return(1/(1+np.exp(x)))
 def prom(x):
@@ -94,15 +104,17 @@ def CombDFs(dfPPG, dfCV, dfEEG):
 
     del dfPPG['Segment_Indices']
 
-    def df_to_prom(df):
+    def df_to_prom(df, ID):
         df.drop(['Nombre', 'Num', 'Toma', 'Ses'], axis=1, inplace=True)
         columnas = df.columns
-        df = pd.DataFrame(StandardScaler().fit_transform(df))
+        escalador = StandardScaler().fit(df)
+        dump(escalador, open('esc' + ID + '.pkl', 'wb'))
+        df = pd.DataFrame(escalador.transform(df))
         df.columns = columnas
         df = df.applymap(sigmoid)
         return(df)
-    dfPPG = df_to_prom(dfPPG)
-    dfEEG = df_to_prom(dfEEG)
+    dfPPG = df_to_prom(dfPPG, 'PPG')
+    dfEEG = df_to_prom(dfEEG, 'EEG')
 
     dfCV['Minute'] = (dfCV.Second/60).apply(math.ceil)
     dfCV['Bin'] = pd.cut(x = dfCV.Minute, bins = len(dfPPG.index), labels = [x for x in range(1, len(dfPPG.index) + 1)])
@@ -117,6 +129,8 @@ def CombDFs(dfPPG, dfCV, dfEEG):
     #return(dfPPG, dfEEG, proporciones)
 combdf = CombDFs(dfPPG, dfCV, dfEEG)
 #dfPPG, dfEEG, dfCV = CombDFs(dfPPG, dfCV, dfEEG)
+
+print(combdf.columns)
 print(combdf.shape[1])
 print(combdf.head())
 
@@ -182,10 +196,4 @@ plt.ylabel('Principal Component 2')
 plt.legend()
 plt.show()
 
-'''
-import pickle
-
-nombre = 'modeloKmedias.pkl'
-with open(nombre, 'wb') as file:
-    pickle.dump(modelo, file)
-'''
+dump(modelo, open('modeloKmedias.pkl', 'wb'))
