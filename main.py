@@ -53,9 +53,8 @@ def getDFTomas(tipo, carpetas):
         l.append(l_temp)
         df = pd.concat([df, df_temp], ignore_index=True)
     if tipo == 'EEG':
-        np.random.seed(0)
         df.columns = [str('EEG' + str(n)) for n in range(1, len(df.columns) - 3)] + ['Nombre', 'Num', 'Toma', 'Ses']
-        goodIDX = np.random.choice(df.index, size = dfPPG.shape[0], replace = False)
+        goodIDX = range(dfPPG.shape[0])
         df = df.iloc[goodIDX, :]
     df = df.sort_values(by = ['Nombre', 'Num', 'Toma', 'Ses'])
     df.dropna(axis = 1, how = 'any', inplace = True)
@@ -161,7 +160,7 @@ scores = [silhouette_score(df, KMeans(n_clusters = n).fit(df).labels_) for n in 
 inertias = [KMeans(n_clusters = n).fit(df).inertia_ for n in range(2,k_max)]
 
 plt.scatter(df[:,0] , df[:,1])
-plt.title('Datos procesados de $\it{Empatica}$ y $\it{VC}$ para la cuarta toma')
+plt.title('Datos procesados de $\it{Empatica}$, $\it{EGG}$ y $\it{VC}$ para la 1,2,4 toma')
 plt.xlabel('PCA 1')
 plt.ylabel('PCA 2')
 #ax = plt.gca()

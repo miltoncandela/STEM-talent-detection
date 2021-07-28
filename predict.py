@@ -76,8 +76,7 @@ def plot_filt(dfs, nombre, num, toma, a):
         return(df)
     dfCV, dfEEG, dfPPG = map(filtDF, dfs, [nombre] * 3, [num] * 3, [toma] * 3)
 
-    np.random.seed(0)
-    goodIDX = np.random.choice(dfEEG.index, size = dfPPG.shape[0], replace = False)
+    goodIDX = range(dfPPG.shape[0])
     dfEEG = dfEEG.iloc[goodIDX, :]
 
     file1 = open('columnasEEG.txt', 'r')
@@ -135,6 +134,8 @@ def plot_filt(dfs, nombre, num, toma, a):
     dict_probas = {'Probability_0' : str(round((pred == 0).sum()/len(pred) * 100, 2)) + ' %',
                    'Probability_1': str(round((pred == 1).sum()/len(pred) * 100, 2)) + ' %',
                    'Probability_2': str(round((pred == 2).sum()/len(pred) * 100, 2)) + ' %',
+                   'Probability_3': str(round((pred == 3).sum() / len(pred) * 100, 2)) + ' %',
+                   'Probability_4': str(round((pred == 4).sum() / len(pred) * 100, 2)) + ' %',
                    'Mode': max(set(list(pred)), key = list(pred).count)}
     print(dict_probas)
     # Class 0 : Blue
@@ -149,7 +150,7 @@ def plot_filt(dfs, nombre, num, toma, a):
     centroids = modelo.cluster_centers_
     u_labels = np.unique(labels)
 
-    colores = ['#1f77b4', '#ff7f0e', '#2ca02c']
+    colores = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
     for i in u_labels:
         a.scatter(df[labels == i , 0] , df[labels == i , 1] , label = 'Class ' + str(i) + ' (' + dict_probas['Probability_' + str(i)] + ')', color = colores[i])
     atributos = [nombre, num, toma, str(dict_probas['Mode'])]
