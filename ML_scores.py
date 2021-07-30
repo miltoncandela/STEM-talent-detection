@@ -10,14 +10,14 @@ inv_cat = {v: k for k, v in categorias.items()}
 X = pd.read_csv('ResultadosMCE.csv')
 X.drop('Score', axis = 1, inplace = True)
 Y = X.pop('Categoria')
-#Y = pd.Series([categorias[x] for x in Y]).astype('category')
+Y = pd.Series([categorias[x] for x in Y]).astype('category')
 
 from collections import Counter
 print(sorted(Counter(Y).items()))
 
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import RandomOverSampler
-rus = RandomOverSampler(random_state=0)
+rus = RandomOverSampler(random_state = 0)
 X_resampled, y_resampled = rus.fit_resample(X, Y)
 print(sorted(Counter(y_resampled).items()))
 
@@ -97,8 +97,12 @@ plt.legend()
 plt.show()
 '''
 
-#from shap import TreeExplainer
-#from shap import summary_plot
-#shap_values = TreeExplainer(model).shap_values(X_test)[1]
-#f = summary_plot(shap_values, X_test)
-#f.savefig('SHAP.pdf', bbox_inches='tight')
+X_test_filt.drop('Categoria', axis = 1, inplace = True)
+from shap import TreeExplainer
+from shap import summary_plot
+shap_values = TreeExplainer(model).shap_values(X_test_filt)[1]
+print(shap_values)
+f = summary_plot(shap_values, X_test_filt)
+#shap.dependence_plot('Beta_P7', shap_values, X_test, interaction_index = 'Beta_P8')
+#shap.dependence_plot('Gamma_P7', shap_values, X_test, interaction_index = 'Alpha_P7')
+#shap.dependence_plot('Alpha_P7', shap_values, X_test, interaction_index = 'Beta_P7')
