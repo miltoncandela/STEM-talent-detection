@@ -71,10 +71,10 @@ plt.show()
 
 y_test.index = range(y_test.shape[0])
 X_test_filt.index = range(X_test_filt.shape[0])
-X_test_filt['Categoria'] = y_test
+X_test_filt['Categoria'] = pd.Categorical(y_test)
 
 import seaborn as sns
-sns.pairplot(X_test_filt, hue="Categoria")
+sns.pairplot(X_test_filt, hue="Categoria", markers = ['o', 's', 'D', 'H'])
 plt.show()
 
 '''
@@ -98,11 +98,11 @@ plt.show()
 '''
 
 X_test_filt.drop('Categoria', axis = 1, inplace = True)
-from shap import TreeExplainer
-from shap import summary_plot
-shap_values = TreeExplainer(model).shap_values(X_test_filt)[1]
-print(shap_values)
-f = summary_plot(shap_values, X_test_filt)
+#from shap import TreeExplainer
+#from shap import summary_plot
+#shap_values = TreeExplainer(model).shap_values(X_test_filt)[1]
+#print(shap_values)
+#f = summary_plot(shap_values, X_test_filt)
 #shap.dependence_plot('Beta_P7', shap_values, X_test, interaction_index = 'Beta_P8')
 #shap.dependence_plot('Gamma_P7', shap_values, X_test, interaction_index = 'Alpha_P7')
 #shap.dependence_plot('Alpha_P7', shap_values, X_test, interaction_index = 'Beta_P7')

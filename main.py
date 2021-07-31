@@ -7,6 +7,8 @@ import os
 from sklearn.cluster import KMeans
 
 #pd.set_option('display.max_rows', 500)
+# 7 values each Alpha Low_Beta High_Beta Gamma Theta
+# 1 value each Fatigue Load
 
 def getDF(tipo, carpeta):
     camino = 'datos/' + tipo + '/' + carpeta + '/'
@@ -53,7 +55,14 @@ def getDFTomas(tipo, carpetas):
         l.append(l_temp)
         df = pd.concat([df, df_temp], ignore_index=True)
     if tipo == 'EEG':
-        df.columns = [str('EEG' + str(n)) for n in range(1, len(df.columns) - 3)] + ['Nombre', 'Num', 'Toma', 'Ses']
+        canales = ['FP1', 'F3', 'C3', 'Pz', 'C4', 'F4', 'FP2']
+        senales = ['A', 'LB', 'HB', 'G', 'T']
+        columnas_EEG = [s + '_' + c for s in senales for c in canales] + ['Fatigue', 'Load']
+        # [str('EEG' + str(n)) for n in range(1, len(df.columns) - 3)]
+        print(len(df.columns))
+        print(len(columnas_EEG))
+        print(len(columnas_EEG + ['Nombre', 'Num', 'Toma', 'Ses']))
+        df.columns = columnas_EEG + ['Nombre', 'Num', 'Toma', 'Ses']
         goodIDX = range(dfPPG.shape[0])
         df = df.iloc[goodIDX, :]
     df = df.sort_values(by = ['Nombre', 'Num', 'Toma', 'Ses'])
