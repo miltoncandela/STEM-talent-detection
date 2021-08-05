@@ -4,6 +4,8 @@
 # The following code explores both target variables categories (MCE, PSI), using a processed CSV file from the
 # "processed" folder, created using the "createCSV.py" file, which joins the biometric devices and the predicted scores.
 # It creates multiple visualization tools, in order to extract data insights and do a quick feature selection process.
+import os
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 mpl.rcParams['figure.max_open_warning'] = 0
@@ -20,6 +22,9 @@ from imblearn.over_sampling import SMOTE, RandomOverSampler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
+
+channels = ['FP1', 'F3', 'C3', 'PZ', 'C4', 'F4', 'FP2']
+signals = ['A', 'LB', 'HB', 'G', 'T']
 
 
 def figure_generator(folder, scores_categories, sampling_method='None'):
@@ -44,7 +49,7 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     # Target variables that are not currently used, would be dropped.
     x = pd.read_csv('processed/combined_df.csv')
     y = x.pop(folder)
-    x = x.iloc[:, :-3]
+    x = x.iloc[:, :-3].drop([signal + '_' + channel for signal in signals for channel in channels], axis=1)
     y = y.astype('category')
 
     # Class imbalance #
@@ -115,6 +120,8 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
 
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#1f77b4', '#ff7f0e']
     markers = ['o', 's', 'D', 'H']
+    for file in os.listdir('figures/{}/{}/plots/'.format(folder, sampling_method)):
+        os.remove('figures/{}/{}/plots/{}'.format(folder, sampling_method, file))
     for num_column_i, feature_i in enumerate(x_resampled.columns):
         for num_column_j, feature_j in enumerate(x_resampled.columns):
             if feature_i != feature_j and feature_i != 'Categoria' and feature_j != 'Categoria':
@@ -127,9 +134,13 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
                     ax.set_xlim(0, 0.2)
                 if feature_j == 'surprise':
                     ax.set_ylim(0, 0.2)
+                if feature_i == 'Load':
+                    ax.set_xlim(0, 0.665)
+                if feature_j == 'Load':
+                    ax.set_ylim(0, 0.665)
                 for i, curr_label in enumerate(sorted(list(set(y_resampled)), reverse=True)):
                     plt.scatter(x_resampled[x_resampled.Categoria == curr_label][feature_i],
-                                x_resampled[x_resampled.Categoria == curr_label][feature_j],
+                                x_resampled[x_resampled.Categoria == curr_label][feature_j], alpha=0.5,
                                 label=str(curr_label), color=colors[inv_categories[curr_label]])
                 plt.xlabel(feature_i)
                 plt.ylabel(feature_j)
