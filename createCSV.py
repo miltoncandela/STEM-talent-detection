@@ -116,7 +116,7 @@ def get_df_takes(device, folders):
     # done due to failure and error in the biometric device, and so it would be under-sampled to the Empatica device.
     if device == 'EEG':
         channels = ['FP1', 'F3', 'C3', 'PZ', 'C4', 'F4', 'FP2']
-        signals = ['A', 'LB', 'HB', 'G', 'T']
+        signals = ['Alpha', 'LowBeta', 'HighBeta', 'Gamma', 'Theta']
         eeg_columns = [signal + '_' + channel for signal in signals for channel in channels] + ['Fatigue', 'Load']
         df.columns = eeg_columns + ['ID', 'Take', 'Session']
         df = df.iloc[range(dfPPG.shape[0]), :]

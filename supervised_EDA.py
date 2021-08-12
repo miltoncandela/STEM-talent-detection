@@ -8,9 +8,10 @@ import os
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 mpl.rcParams['figure.max_open_warning'] = 0
 
-from shap import TreeExplainer, summary_plot
+# from shap import TreeExplainer, summary_plot
 import pandas as pd
 import seaborn as sns
 
@@ -24,7 +25,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 
 channels = ['FP1', 'F3', 'C3', 'PZ', 'C4', 'F4', 'FP2']
-signals = ['A', 'LB', 'HB', 'G', 'T']
+signals = ['Alpha', 'LowBeta', 'HighBeta', 'Gamma', 'Theta']
 
 
 def figure_generator(folder, scores_categories, sampling_method='None'):
@@ -80,12 +81,26 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     s = pd.Series(index=x.columns, data=model.feature_importances_).sort_values(ascending=False)
 
     # The following bar plot visually established the importance of the best features according to the RF model.
+    emotions = ['neutral', 'surprise', 'sad', 'happy', 'fear', 'angry']
+    feat_eeg = ['Load', 'Fatigue']
+
+    def color_bar(x):
+        if x in emotions:
+            return '#FACF5A'
+        elif x in feat_eeg:
+            return '#455D7A'
+        else:
+            return '#F95959'
+
     fig = plt.figure()
-    plt.bar(s.index[:25], s[:25])
+    plt.bar(s.index[:25], s[:25], color=[color_bar(col) for col in list(s.index)])
     plt.xlabel('Feature')
     plt.ylabel("Importance")
     plt.title('Top 25 most important features when predicting {} category'.format(folder[:3]))
     plt.xticks(rotation=90)
+    plt.legend(handles=[mpatches.Patch(color='#FACF5A', label='Emotions'),
+                        mpatches.Patch(color='#455D7A', label='EEG'),
+                        mpatches.Patch(color='#F95959', label='Empatica')])
     fig.savefig('figures/{}/{}/top_features_bar_plot.png'.format(folder, sampling_method), bbox_inches='tight')
 
     # These best features are used as a filter on the DataFrames, declared on separate, filtered DataFrames
@@ -111,15 +126,21 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     # Using seaborn, a pair plot can be done using a DataFrame, it is the number of columns in that DataFrame have to be
     # small, as it is a matrix of plots and it can be unclear when the number of features is huge. These pair plots are
     # useful in filtered DataFrames, as data insights can be drawn, deepening the understanding on the target variable.
+    # palette = sns.color_palette("Spectral_r", len(scores_categories.keys()))
+    # Yellow = #FFFF00
+    # Red = #FF0000
+    # Pink = #FF0080
+    # Orange = #FF8000
+    # Green = #00FF00
+    # Blue = #0000FF
+    palette = ['#0000FF', '#00FF00', '#FF8000', '#FF0000'] if len(scores_categories.keys()) == 4 else ['#00FF00', '#FF0000']
     x_resampled = x_resampled.loc[:, s.index[:N_FEATURES]]
-    x_resampled['Categoria'] = pd.Categorical(y_resampled)
-    fig = sns.pairplot(x_resampled, hue="Categoria", markers=['o', 's', 'D', 'H'][:len(set(y))])
+    x_resampled['Categoria'] = pd.Categorical(y_resampled, categories=list(reversed(scores_categories.values())))
+    markers=['s', 's', 'o', 'o'] if len(scores_categories.keys()) > 2 else ['s', 'o']
+    fig = sns.pairplot(x_resampled, hue="Categoria", markers=markers, palette=palette)
     fig.savefig('figures/{}/{}/pair_plot.png'.format(folder, sampling_method),
                 bbox_inches='tight', orientation='portrait')
 
-
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#1f77b4', '#ff7f0e']
-    markers = ['o', 's', 'D', 'H']
     for file in os.listdir('figures/{}/{}/plots/'.format(folder, sampling_method)):
         os.remove('figures/{}/{}/plots/{}'.format(folder, sampling_method, file))
     for num_column_i, feature_i in enumerate(x_resampled.columns):
@@ -138,10 +159,9 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
                     ax.set_xlim(0, 0.665)
                 if feature_j == 'Load':
                     ax.set_ylim(0, 0.665)
-                for i, curr_label in enumerate(sorted(list(set(y_resampled)), reverse=True)):
-                    plt.scatter(x_resampled[x_resampled.Categoria == curr_label][feature_i],
-                                x_resampled[x_resampled.Categoria == curr_label][feature_j], alpha=0.5,
-                                label=str(curr_label), color=colors[inv_categories[curr_label]])
+                sns.scatterplot(x=feature_i, y=feature_j, data=x_resampled, alpha=0.8, hue='Categoria',
+                                palette=palette)
+                # palette=sns.color_palette('Spectral_r', len(scores_categories.keys()))
                 plt.xlabel(feature_i)
                 plt.ylabel(feature_j)
                 plt.title('{} and {} on {} category'.format(feature_i, feature_j, folder[:3]))
@@ -152,7 +172,7 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     # and computes relationships between the features and the target variable. A final RF is trained on a encoded,
     # numeric target variable, due to the progressive cardinality between categories, the SHAP plot would be useful
     # to detect whether the increase or decrease of a feature is related to an increase or decrease of our target class.
-
+    '''
     x_resampled.drop('Categoria', axis=1, inplace=True)
     y_enc = pd.Series([inv_categories[str(x)] for x in y_resampled]).astype('category')
     model = RandomForestClassifier(random_state=20).fit(x_resampled, y_enc)
@@ -163,6 +183,7 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     ax.set_title("SHAP summary plot on predicting {}".format(folder[:3]))
     fig.savefig('figures/{}/{}/SHAP.png'.format(folder, sampling_method), format='png', dpi=150, bbox_inches="tight")
     print('Figures saved on figures/{}/{}/'.format(folder, sampling_method))
+    '''
 
 
 N_FEATURES = 5
