@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 mpl.rcParams['figure.max_open_warning'] = 0
 
-# from shap import TreeExplainer, summary_plot
+from shap import TreeExplainer, summary_plot
 import pandas as pd
 import seaborn as sns
 
@@ -136,7 +136,7 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     palette = ['#0000FF', '#00FF00', '#FF8000', '#FF0000'] if len(scores_categories.keys()) == 4 else ['#00FF00', '#FF0000']
     x_resampled = x_resampled.loc[:, s.index[:N_FEATURES]]
     x_resampled['Categoria'] = pd.Categorical(y_resampled, categories=list(reversed(scores_categories.values())))
-    markers=['s', 's', 'o', 'o'] if len(scores_categories.keys()) > 2 else ['s', 'o']
+    markers = ['s', 's', 'o', 'o'] if len(scores_categories.keys()) > 2 else ['s', 'o']
     fig = sns.pairplot(x_resampled, hue="Categoria", markers=markers, palette=palette)
     fig.savefig('figures/{}/{}/pair_plot.png'.format(folder, sampling_method),
                 bbox_inches='tight', orientation='portrait')
@@ -172,18 +172,16 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     # and computes relationships between the features and the target variable. A final RF is trained on a encoded,
     # numeric target variable, due to the progressive cardinality between categories, the SHAP plot would be useful
     # to detect whether the increase or decrease of a feature is related to an increase or decrease of our target class.
-    '''
     x_resampled.drop('Categoria', axis=1, inplace=True)
-    y_enc = pd.Series([inv_categories[str(x)] for x in y_resampled]).astype('category')
-    model = RandomForestClassifier(random_state=20).fit(x_resampled, y_enc)
+    y_resampled = pd.Categorical(y_resampled, categories=list(scores_categories.values()), ordered=True)
+    model = RandomForestClassifier(random_state=20).fit(x_resampled, y_resampled)
     shap_values = TreeExplainer(model).shap_values(x_resampled)[1]
     fig = plt.figure()
-    summary_plot(shap_values, x_resampled, show=False, class_names=scores_categories.values)
+    summary_plot(shap_values, x_resampled, show=False, class_names=list(scores_categories.values()))
     ax = fig.gca()
     ax.set_title("SHAP summary plot on predicting {}".format(folder[:3]))
     fig.savefig('figures/{}/{}/SHAP.png'.format(folder, sampling_method), format='png', dpi=150, bbox_inches="tight")
     print('Figures saved on figures/{}/{}/'.format(folder, sampling_method))
-    '''
 
 
 N_FEATURES = 5
