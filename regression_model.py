@@ -2,28 +2,73 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.metrics import plot_confusion_matrix
+from collections import Counter
+from matplotlib.offsetbox import AnchoredText
 
 # Target variables that are not currently used, would be dropped.
-x = pd.read_csv('processed/combined_df.csv')
+MCE_categories = {1: 'Malo', 2: 'Insuficiente', 3: 'Regular', 4: 'Bueno', 5: 'Excelente'}
+x = pd.read_csv('processed/filtered_MCE_Score.csv').drop(['ID', 'Take'], axis=1)
 y = x.pop('MCE_Score')
-x = x.iloc[:, :-3]
+N_FEATURES = 17
+x = x.iloc[:, :-3].iloc[:, :N_FEATURES]
+print(x.head())
 
 from sklearn.model_selection import train_test_split
-x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.7, random_state=50, shuffle=False)
-corr = [np.abs(np.corrcoef(x_train[feature], y_train)[0][1]) for feature in x.columns]
-s_corr = pd.Series(index=x_train.columns, data=corr).sort_values(ascending=False)
-print(s_corr)
-# x = x.loc[:, s.index[:5]]
-# x_train['Score'] = y_train
-# sns.pairplot(x, hue='Score', palette=sns.diverging_palette(20, 220, n=len(np.unique(x.Score))))
-# plt.scatter(x=x.iloc[:, 0], y=x.Score)
+x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.8, random_state=50)
+
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, confusion_matrix
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.linear_model import LinearRegression
+
+model = LinearRegression().fit(x_train, y_train)
+print(r2_score(y_test, model.predict(x_test)))
+
+model = GradientBoostingRegressor(random_state=50).fit(x_train, y_train)
+print(r2_score(y_test, model.predict(x_test)))
+
+model = RandomForestRegressor(random_state=50).fit(x_train, y_train)
+print(r2_score(y_test, model.predict(x_test)))
+
+
+# print(accuracy_score(pd.cut(y_test, [0, 1, 2, 3, 4, 5], labels=MCE_categories.values()),
+#                      pd.cut(model.predict(x_test), [0, 1, 2, 3, 4, 5], labels=MCE_categories.values())))
+# trues = pd.cut(y_test, [0, 1, 2, 3, 4, 5], labels=MCE_categories.values())
+# preds = pd.cut(model.predict(x_test), [0, 1, 2, 3, 4, 5], labels=MCE_categories.values())
+
+df = pd.DataFrame({'True_values': y_test, 'Predicted_values': model.predict(x_test)}).sort_values(by='True_values', ascending=True)
+fig = plt.figure()
+plt.scatter(x=range(x_test.shape[0]), y=df['True_values'], c='b', label='Reference')
+plt.scatter(x=range(x_test.shape[0]), y=df['Predicted_values'], c='r', label='Predicted')
+a = plt.gca()
+a.set_title('Reference and predicted STEM interest using RF with 17 features')
+a.set_xlabel("Sample's index using testing dataset from 80:20 split")
+a.set_ylabel('Delta of STEM interest, given pre and pos evaluation')
+plt.legend()
+at = AnchoredText("Coefficient of determination $(R^2)$: {}".format(round(r2_score(y_test, model.predict(x_test)), 2)),
+                  loc='lower right')
+at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
+a.add_artist(at)
+plt.show()
+# fig.savefig('figures/results/PSI_prediction.png', bbox_inches='tight')
+
+# prop=dict(size=15), frameon=True,
+
+trues = pd.Categorical(['Positive' if score > 0 else 'Negative' for score in y_test], categories=['Positive', 'Negative'])
+preds = pd.Categorical(['Positive' if score > 0 else 'Negative' for score in model.predict(x_test)], categories=['Positive', 'Negative'])
+print(confusion_matrix(trues, preds))
+print(Counter(trues), Counter(preds))
+# sns.heatmap(confusion_matrix(trues, preds, labels=['Positive', 'Negative']), annot=True)
+# plt.matshow(confusion_matrix(trues, preds, labels=['Positive', 'Negative'], normalize='true'))
 # plt.show()
+# print(confusion_matrix(pd.cut(y_test, [0, 1, 2, 3, 4, 5], labels=MCE_categories.values()),
+#                        pd.cut(model.predict(x_test), [0, 1, 2, 3, 4, 5], labels=MCE_categories.values())))
+exit()
 
 # x_train.drop('Score', axis=1, inplace=True)
 from sklearn.model_selection import StratifiedKFold, KFold
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.ensemble import RandomForestRegressor
+
 from sklearn.ensemble import GradientBoostingRegressor
 
 k = 5

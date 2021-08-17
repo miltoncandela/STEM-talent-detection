@@ -9,6 +9,7 @@
 
 # EEG and ECG (PPG): Median of each features on 5 minute windows.
 # CV: Probability distribution for each possible emotion, on 5 minute windows.
+import copy
 
 from sklearn.preprocessing import StandardScaler
 from pickle import dump
@@ -56,8 +57,8 @@ PSI_scores = {'DJ04': [0.6, 0, -0.3], 'ST01': [0.1, 0.6, -0.1], 'DJ01': [0.7, 0.
 # Toma 3 (Take 3) : Robotics
 # Toma 4 (Take 4) : 3D Design
 
-# In order to reduce class imbalance, only take number 1, 2 and 4 would be used, although, take 2 could be changed for
-# take 3, due to the fact they are both on the robotics type of lecture. Depending on the folder's organization is
+# As class imbalance is not a problem on regression problems, all takes would be used, although, when classification,
+# either take 2 or 3 should be taken as they are both robotics lecture. Depending on the folder's organization is
 # where the processed data is included, although the folders with the processed CSV files would be further used.
 
 
@@ -72,19 +73,30 @@ def get_df(device, folder):
     """
 
     # The CSV files are listed, and so it creates a list of files from which a blank dataframe is initialized.
+    global df_temp
+    global df
+
     path = 'data/' + device + '/' + folder + '/'
     file_list = os.listdir(path)
 
-    df = pd.read_csv(path + file_list[0], na_values='--', nrows=0)
+    if device == 'EEG - Engagement':
+        df = pd.read_csv(path + file_list[0], na_values='--', nrows=0, header=None)
+    elif device == 'Empatica' or device == 'Emotions':
+        df = pd.read_csv(path + file_list[0], na_values='--', nrows=0)
     df = pd.DataFrame(columns=list(df.columns) + ['ID', 'Take', 'Session'])
 
     # The following for loop iterates over all the CSV files, concatenating a temporal DataFrame with the main, blank
     # DataFrame. It is worth noting that the DataFrame keeps track of the CSV file which is read, such as: the kid's ID
     # kid; Take; and Session, this is important because the target variables would be joined using these data.
     for i, file in enumerate(file_list):
-        df_temp = pd.read_csv(path + file, na_values='--')
+        if device == 'EEG - Engagement':
+            df_temp = pd.read_csv(path + file_list[0], na_values='--', header=None)
+        elif device == 'Empatica' or device == 'Emotions':
+            df_temp = pd.read_csv(path + file_list[0], na_values='--')
+        # df_temp = pd.read_csv(path + file, na_values='--')
         df_temp['ID'], df_temp['Take'], df_temp['Session'] = (file[0:4], file[8], file[10])
         df = pd.concat([df, df_temp], ignore_index=True)
+
     df.dropna(axis=1, how='any', inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
@@ -114,10 +126,11 @@ def get_df_takes(device, folders):
     # With a total of 37 column names, further on the if statement, the number of rows on the EEG DataFrame is also
     # subset on the first n observations, where n corresponds to the number of rows in the Empatica DataFrame, this was
     # done due to failure and error in the biometric device, and so it would be under-sampled to the Empatica device.
-    if device == 'EEG':
+    if device == 'EEG - Engagement' or device == 'EEG':
+        combined_features = ['Fatigue', 'Load', 'Engagement'] if device == 'EEG - Engagement' else ['Fatigue', 'Load']
         channels = ['FP1', 'F3', 'C3', 'PZ', 'C4', 'F4', 'FP2']
         signals = ['Alpha', 'LowBeta', 'HighBeta', 'Gamma', 'Theta']
-        eeg_columns = [signal + '_' + channel for signal in signals for channel in channels] + ['Fatigue', 'Load']
+        eeg_columns = [signal + '_' + channel for signal in signals for channel in channels] + combined_features
         df.columns = eeg_columns + ['ID', 'Take', 'Session']
         df = df.iloc[range(dfPPG.shape[0]), :]
 
@@ -128,10 +141,73 @@ def get_df_takes(device, folders):
     return df
 
 
-# Based on each biometric device sub-folder, a DataFrame is extracted using first, second, and fourth take.
-dfPPG = get_df_takes('Empatica', ['Resultados Primera Toma', 'Resultados Segunda Toma', 'Resultados Cuarta Toma'])
-dfEEG = get_df_takes('EEG', ['Toma 1', 'Toma 2', 'Toma 4'])
-dfCV = get_df_takes('Emotions', ['Resultados Primera Toma DLIB', 'Resultados Segunda Toma DLIB', 'Resultados Cuarta Toma DLIB'])
+# Based on each biometric device sub-folder, a DataFrame is extracted using first, second, third and fourth take.
+dfPPG = get_df_takes('Empatica', ['Resultados Primera Toma', 'Resultados Segunda Toma',
+                                  'Resultados Tercera Toma', 'Resultados Cuarta Toma'])
+dfEEG = get_df_takes('EEG - Engagement', ['Toma 1', 'Toma 2', 'Toma 3', 'Toma 4'])
+dfCV = get_df_takes('Emotions', ['Resultados Primera Toma DLIB', 'Resultados Segunda Toma DLIB',
+                                 'Resultados Tercera Toma DLIB', 'Resultados Cuarta Toma DLIB'])
+
+
+def feature_generation(df):
+    """
+    This function creates a variety of combined features using the provided features, it is only used in EEG and PPG
+    features, because they are non-normalized and will further be normalized, and so their range varies between 0 and 1.
+
+    :param pd.DataFrame df: Non-normalized DataFrame with continuous values, from PPG and EEG.
+    :return pd.DataFrame: Returns a pandas Dataframe with combined features in addition to the previous features.
+    """
+
+    # The following variables are created:
+    # df_features would be our pandas DataFrame where the normal and combined features are placed.
+    # Epsilon is a constant to avoid dividing by 0.
+    # Names and combinations would track the names of the combined features created.
+    df_features = copy.deepcopy(df)
+    epsilon = 0.000001
+    names = list(df_features.columns)
+    combinations = []
+
+    # The following for loop creates a set of combined features based on the spectral signals that were generated.
+    # It iterates over all the features on a separate DataFrame, and it applies a function. The result is further
+    # saved on a column with the following encoding:
+
+    # Name_i-I : Inverse on ith feature
+    # Name_i-L : Logarithm on ith feature
+    # Name_i-M-Name_j : Multiplication of ith feature with feature jth
+    # Name_i-D-Name_j : Division of ith feature with feature jth
+
+    # A small number on the form of a epsilon is being used to avoid NANs because some functions are 0 sensitive,
+    # such as the natural logarithm and the division by 0. Moreover, a separate list "combinations" is used to keep
+    # track the combinations of ith and jth features, and so not to generate duplicate features when multiplying
+    # ith feature with jth feature and vice versa (as they are the same number).
+    for i in range(len(df.columns)):
+        names.append(df.columns[i] + '-I')
+        df_features = pd.concat((df_features, np.divide(np.ones(df.shape[0]), df.loc[:, df.columns[i]])),
+                                axis=1, ignore_index=True)
+
+        names.append(df.columns[i] + '-L')
+        df_features = pd.concat((df_features, pd.Series(np.log(np.abs(np.array(df.loc[:, df.columns[i]])) + 1))),
+                                axis=1, ignore_index=True)
+
+        for j in range(len(df.columns)):
+            if i != j:
+                current_combination = str(i) + str(j)
+                if current_combination not in combinations:
+                    combinations.append(current_combination)
+                    names.append(df.columns[i] + '-M-' + df.columns[j])
+                    df_features = pd.concat((df_features,
+                                             np.multiply(df.loc[:, df.columns[i]], df.loc[:, df.columns[j]])),
+                                            axis=1, ignore_index=True)
+                names.append(df.columns[i] + '-D-' + df.columns[j])
+                df_features = pd.concat((df_features,
+                                         pd.Series(np.divide(df.loc[:, df.columns[i]],
+                                                             np.array(df.loc[:, df.columns[j]]) + epsilon))),
+                                        axis=1, ignore_index=True)
+
+    # The generated feature names are placed, infinity values from columns are removed, and the DF is returned.
+    df_features.columns = names
+    df_features = df_features.replace([np.inf, -np.inf], np.nan).dropna(axis='columns', how='any')
+    return df_features
 
 
 def combine_dfs(df_ppg, df_eeg, df_cv):
@@ -164,6 +240,7 @@ def combine_dfs(df_ppg, df_eeg, df_cv):
         """
 
         df.drop(['ID', 'Take', 'Session'], axis=1, inplace=True)
+        df = feature_generation(df)
         columns = df.columns
         scaler = StandardScaler().fit(df)
         dump(scaler, open('processed/' + device + '_scaler.pkl', 'wb'))
@@ -236,7 +313,8 @@ def set_scores(df, col_name, score_dict):
     # It subtracts the take number if it corresponds to the 1 and 2 take, the 4 take is hard-coded into index 2,
     # afterwards, the ID variable is extracted and the score for that row is obtained.
     for i in range(df.shape[0]):
-        take_key = int(df.iloc[i, take_column_index]) - 1 if int(df.iloc[i, take_column_index]) < 3 else 2
+        current_take = int(df.iloc[i, take_column_index])
+        take_key = current_take - 1 if current_take < 3 else 1 if current_take == 3 else 2
         current_id = str(df.iloc[i, id_column_index])
         if current_id in score_dict.keys():
             scores.append(score_dict[current_id][take_key])
@@ -251,9 +329,6 @@ def set_scores(df, col_name, score_dict):
 # The previous function is used on both scores, designating a separate column for each score.
 comb_df = set_scores(comb_df, 'PSI_Score', score_dict=PSI_scores)
 comb_df = set_scores(comb_df, 'MCE_Score', score_dict=MCE_scores)
-
-# ID and Take are not needed anymore, as scores are already joined on the DataFrame, NANs are dropped.
-comb_df = comb_df.drop(['ID', 'Take'], axis=1).dropna(axis=0)
 
 # A category is assigned for each score, the MCE score has a range, multi-class category, while the PSI score is
 # actually a delta of a score, and so a binary encoding would be applied: whether its value is positive or negative.

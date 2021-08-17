@@ -8,11 +8,11 @@ from scipy.stats.stats import pearsonr
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler
 from sklearn.metrics import r2_score, accuracy_score
 
-X = pd.read_csv('processed/combined_df.csv').drop(['MCE_Category', 'PSI_Category'], axis=1)
+X = pd.read_csv('processed/filtered_MCE_Score.csv').drop(['MCE_Category', 'PSI_Category', 'ID', 'Take'], axis=1)
 Y = X.loc[:, ['MCE_Score', 'PSI_Score']]
-Y['MCE_Score'] = Y.MCE_Score / 5
-scaler = MinMaxScaler()
-Y['PSI_Score'] = scaler.fit_transform(np.array(Y.PSI_Score).reshape(-1, 1))
+# Y['MCE_Score'] = Y.MCE_Score / 5
+# scaler = MinMaxScaler()
+# Y['PSI_Score'] = scaler.fit_transform(np.array(Y.PSI_Score).reshape(-1, 1))
 print(Y.head())
 X.drop(['MCE_Score', 'PSI_Score'], axis=1, inplace=True)
 N_FEATURES = 50
@@ -26,11 +26,11 @@ from sklearn.model_selection import train_test_split
 P = 0.7
 X_train, X_test, y_train, y_test = train_test_split(X, Y, train_size=P, random_state=60)
 
-corr = np.array(([np.abs(np.corrcoef(X_train[feature], y_train.MCE_Score)[0][1]) for feature in X_train.columns],
-                 [np.abs(np.corrcoef(X_train[feature], y_train.PSI_Score)[0][1]) for feature in X_train.columns]))
-corr = np.mean(corr, axis=0)
-s_corr = pd.Series(index=X_train.columns, data=corr).sort_values(ascending=False)
-X_train, X_test = X_train.loc[:, s_corr.index[:N_FEATURES]], X_test.loc[:, s_corr.index[:N_FEATURES]]
+# corr = np.array(([np.abs(np.corrcoef(X_train[feature], y_train.MCE_Score)[0][1]) for feature in X_train.columns],
+#                 [np.abs(np.corrcoef(X_train[feature], y_train.PSI_Score)[0][1]) for feature in X_train.columns]))
+# corr = np.mean(corr, axis=0)
+# s_corr = pd.Series(index=X_train.columns, data=corr).sort_values(ascending=False)
+# X_train, X_test = X_train.loc[:, s_corr.index[:N_FEATURES]], X_test.loc[:, s_corr.index[:N_FEATURES]]
 
 BATCH_SIZE = 50
 
@@ -93,7 +93,7 @@ def create_model(name=None):
 # please comment or uncomment the lines of code depending on the desired outcome.
 
 METRICS = {'mae': 'Mean Absolute Error (MAE)', 'mse': 'Mean Squared Error (MSE)'}
-EPOCH = 1500
+EPOCH = 750
 
 # CREATING: Model generation via create_model, name is a parameter to save the model on "saved_models" folder.
 model = create_model()
@@ -162,10 +162,10 @@ plt.show()
 y_prediction = model.predict(X_test)
 y_true = np.array(y_test)
 y_both = pd.DataFrame(np.hstack([y_prediction, y_true]), columns=['MCE_Prediction', 'PSI_Prediction', 'MCE_True', 'PSI_True'])
-y_both['MCE_Prediction'] = y_both.MCE_Prediction * 5
-y_both['MCE_True'] = y_both.MCE_True * 5
-y_both['PSI_Prediction'] = scaler.inverse_transform(np.array(y_both.PSI_Prediction).reshape(-1, 1))
-y_both['PSI_Prediction'] = scaler.inverse_transform(np.array(y_both.PSI_True).reshape(-1, 1))
+# y_both['MCE_Prediction'] = y_both.MCE_Prediction * 5
+# y_both['MCE_True'] = y_both.MCE_True * 5
+# y_both['PSI_Prediction'] = scaler.inverse_transform(np.array(y_both.PSI_Prediction).reshape(-1, 1))
+# y_both['PSI_Prediction'] = scaler.inverse_transform(np.array(y_both.PSI_True).reshape(-1, 1))
 print(y_both)
 
 test_metrics = model.evaluate(X_test, verbose=0)
