@@ -4,28 +4,22 @@
 # The following code explores both target variables categories (MCE, PSI), using a processed CSV file from the
 # "processed" folder, created using the "createCSV.py" file, which joins the biometric devices and the predicted scores.
 # It creates multiple visualization tools, in order to extract data insights and do a quick feature selection process.
+
 import os
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-mpl.rcParams['figure.max_open_warning'] = 0
 
 from shap import TreeExplainer, summary_plot
 import pandas as pd
 import seaborn as sns
 
 from sklearn.metrics import plot_confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.over_sampling import SMOTE, RandomOverSampler
-
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix
-
-channels = ['FP1', 'F3', 'C3', 'PZ', 'C4', 'F4', 'FP2']
-signals = ['Alpha', 'LowBeta', 'HighBeta', 'Gamma', 'Theta']
 
 
 def figure_generator(folder, scores_categories, sampling_method='None'):
@@ -48,50 +42,53 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     inv_categories = {v: k for k, v in scores_categories.items()}
 
     # Target variables that are not currently used, would be dropped.
-    x = pd.read_csv('processed/combined_df.csv')
+    x = pd.read_csv('processed/filtered_{}_Score_2.csv'.format(folder[:3])).drop(['ID', 'Take'], axis=1)
     y = x.pop(folder)
-    x = x.iloc[:, :-3].drop([signal + '_' + channel for signal in signals for channel in channels], axis=1)
+    x = x.iloc[:, :-3]
     y = y.astype('category')
 
     # Class imbalance #
-    from collections import Counter
-
-    # print(sorted(Counter(y).items()))
     # There exists a class imbalance on both MCE and PSI categories, one category has lower observations than others,
     # "imblearn" is a library with techniques that reduce the class imbalance, one option is to under-sample the data,
     # leading to fewer observations and data loss, using for example RandomUnderSampler to randomly remove majority
     # class observations, until reached the number of least observations. While the other option is to up-sample the
     # data, using RandomUnderSampler or SMOTE (Synthetic Minority Oversampling Technique) to avoid data loss.
-
     sampling_dict = {'SMOTE': SMOTE(sampling_strategy='auto', k_neighbors=3, random_state=0),
                      'Rand_Under': RandomUnderSampler(random_state=50),
                      'Rand_Over': RandomOverSampler(random_state=50)}
+
     x_resampled, y_resampled = x, y
     if sampling_method != 'None':
         x_resampled, y_resampled = sampling_dict[sampling_method].fit_resample(x, y)
-    x_train, x_test, y_train, y_test = train_test_split(x_resampled, y_resampled, train_size=0.7, random_state=60)
+
     # Class imbalance is solved, and so accuracy can be used as a valid metric.
+    x_train, x_test, y_train, y_test = train_test_split(x_resampled, y_resampled, train_size=0.7, random_state=60)
 
     # Feature selection #
     # An initial Random Forest (RF) classifier is trained using all the features on the training dataset, it overfitts
-    # the training dataset, although it provides 0.89 accuracy on the testing dataset.
+    # the whole dataset, although it provides good accuracy and would serve to select the best features.
     model = RandomForestClassifier(random_state=50).fit(x_resampled, y_resampled)
 
-    # This RF model computes the GINI importance index, which would be used as a feature selection method, to n features
+    # The RF model computes the Gini importance index, which would be used as a feature selection method, to n features.
     s = pd.Series(index=x.columns, data=model.feature_importances_).sort_values(ascending=False)
 
-    # The following bar plot visually established the importance of the best features according to the RF model.
+    # The following bar plot visually establish the importance of the best features according to the RF model.
     emotions = ['neutral', 'surprise', 'sad', 'happy', 'fear', 'angry']
-    feat_eeg = ['Load', 'Fatigue']
+    feat_eeg = ['Alpha', 'LowBeta', 'HighBeta', 'Gamma', 'Theta'] + ['Load', 'Fatigue', 'Engagement']
 
-    def color_bar(x):
-        if x in emotions:
-            return '#FACF5A'
-        elif x in feat_eeg:
-            return '#455D7A'
-        else:
-            return '#F95959'
+    def color_bar(feature):
+        """
+        This function would take the name of a feature, and then returns the assigned color depending on the device.
 
+        :param string feature: Name of the feature, could be a combined feature, as splits using underscore "_" and
+        hyphen "-" are being made to take the first feature (combined features are done on the same device).
+        :return: A color in Hexadecimal that would be taken into the bar plot, to identify each feature's device.
+        """
+
+        feature = feature.split('_')[0].split('-')[0]
+        return '#FACF5A' if feature in emotions else '#455D7A' if feature in feat_eeg else '#F95959'
+
+    # A bar plot on feature importance according to the Gini index computed by the RF trained model, is generated.
     fig = plt.figure()
     plt.bar(s.index[:25], s[:25], color=[color_bar(col) for col in list(s.index)])
     plt.xlabel('Feature')
@@ -103,16 +100,15 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
                         mpatches.Patch(color='#F95959', label='Empatica')])
     fig.savefig('figures/{}/{}/top_features_bar_plot.png'.format(folder, sampling_method), bbox_inches='tight')
 
-    # These best features are used as a filter on the DataFrames, declared on separate, filtered DataFrames
+    # These best features are used as a filter on the DataFrames, declared on separate, filtered DataFrames.
     x_train_filter = x_train.loc[:, s.index[:N_FEATURES]]
     x_test_filter = x_test.loc[:, s.index[:N_FEATURES]]
 
     # Modeling #
     # Using the best features, a second model is then trained, this model performs lower than the previous model, it is
-    # understandable, as it uses n features instead of the total 104 features. Parsimonious models, which uses the least
+    # understandable, as it uses n features instead of the total features. Parsimonious models, which uses the least
     # amount of features, are ideal because it efficiently solves a complex task, with the least amount of computations.
     model = RandomForestClassifier(random_state=20).fit(x_train_filter, y_train)
-    # print(accuracy_score(y_train, model.predict(x_train_filter)), accuracy_score(y_test, model.predict(x_test_filter)))
 
     # The confusion matrix is ideal for multi-class modelling, as it gives insights on the difficult to model classes,
     # on which focus and more processing is required to completely disseminate every class.
@@ -123,17 +119,21 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     plt.gcf().savefig('figures/{}/{}/confusion_matrix.png'.format(folder, sampling_method), bbox_inches='tight')
 
     # Visualization #
-    # Using seaborn, a pair plot can be done using a DataFrame, it is the number of columns in that DataFrame have to be
+    # Using seaborn, a pair plot can be done using a DataFrame, though, the number of columns in that DataFrame must be
     # small, as it is a matrix of plots and it can be unclear when the number of features is huge. These pair plots are
     # useful in filtered DataFrames, as data insights can be drawn, deepening the understanding on the target variable.
-    # palette = sns.color_palette("Spectral_r", len(scores_categories.keys()))
-    # Yellow = #FFFF00
-    # Red = #FF0000
-    # Pink = #FF0080
-    # Orange = #FF8000
-    # Green = #00FF00
+
+    # The following colors in hexadecimal format would be used to declare the class of each observation:
     # Blue = #0000FF
-    palette = ['#0000FF', '#00FF00', '#FF8000', '#FF0000'] if len(scores_categories.keys()) == 4 else ['#00FF00', '#FF0000']
+    # Green =  #00FF00
+    # Yellow = #FFFF00
+    # Orange = #FF8000
+    # Red = #FF0000
+    palette = ['#0000FF', '#00FF00', '#FF8000', '#FF0000'] if len(scores_categories.keys()) == 4 \
+        else ['#00FF00', '#FF0000']
+
+    # The whole dataset is filtered using the best features and a "Category" column in added, in order to used it as a
+    # parameter in the seaborn pair plot, we define the shape of the markers depending on the number of targets.
     x_resampled = x_resampled.loc[:, s.index[:N_FEATURES]]
     x_resampled['Categoria'] = pd.Categorical(y_resampled, categories=list(reversed(scores_categories.values())))
     markers = ['s', 's', 'o', 'o'] if len(scores_categories.keys()) > 2 else ['s', 'o']
@@ -141,34 +141,33 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     fig.savefig('figures/{}/{}/pair_plot.png'.format(folder, sampling_method),
                 bbox_inches='tight', orientation='portrait')
 
+    # The previous pair plot make reduced-size scatter plots, and so individual scatter plots of the pair plot's
+    # features would also be made, first we remove all the figures in the folder.
     for file in os.listdir('figures/{}/{}/plots/'.format(folder, sampling_method)):
         os.remove('figures/{}/{}/plots/{}'.format(folder, sampling_method, file))
+
+    # The following for loop iterates over all the best features used on the pair plot (5), and generates individual
+    # plots to better visualize the interaction between the features and the impact on the target variable. Although
+    # it has an if-statement to avoid plotting the same variable on the x-axis and y-axis (which is represented as a
+    # density plot in the pair plot). The axis are limited to 0 and 1, because that is the domain of all the features,
+    # due to the quantity of plots being generated, a separate folder names "plots" is used to save all the plots.
     for num_column_i, feature_i in enumerate(x_resampled.columns):
         for num_column_j, feature_j in enumerate(x_resampled.columns):
             if feature_i != feature_j and feature_i != 'Categoria' and feature_j != 'Categoria':
                 fig = plt.figure()
                 ax = fig.gca()
-
                 ax.set_xlim(0, 1)
                 ax.set_ylim(0, 1)
-                if feature_i == 'surprise':
-                    ax.set_xlim(0, 0.2)
-                if feature_j == 'surprise':
-                    ax.set_ylim(0, 0.2)
-                if feature_i == 'Load':
-                    ax.set_xlim(0, 0.665)
-                if feature_j == 'Load':
-                    ax.set_ylim(0, 0.665)
-                sns.scatterplot(x=feature_i, y=feature_j, data=x_resampled, alpha=0.8, hue='Categoria',
-                                palette=palette)
-                # palette=sns.color_palette('Spectral_r', len(scores_categories.keys()))
+                sns.scatterplot(x=feature_i, y=feature_j, data=x_resampled, alpha=0.8, hue='Categoria', palette=palette)
                 plt.xlabel(feature_i)
                 plt.ylabel(feature_j)
                 plt.title('{} and {} on {} category'.format(feature_i, feature_j, folder[:3]))
                 plt.legend()
                 fig.savefig('figures/{}/{}/plots/{}-{}.png'.format(folder, sampling_method,
-                                                                feature_i, feature_j), bbox_inches='tight')
-    # A further SHapley Additive exPlanations (SHAP) analysis was done, which uses "black box" machine learning models
+                                                                   feature_i, feature_j), bbox_inches='tight')
+
+    # Analysis #
+    # A further SHapley Additive exPlanations (SHAP) analysis was done, which takes "black box" machine learning models
     # and computes relationships between the features and the target variable. A final RF is trained on a encoded,
     # numeric target variable, due to the progressive cardinality between categories, the SHAP plot would be useful
     # to detect whether the increase or decrease of a feature is related to an increase or decrease of our target class.
@@ -176,6 +175,9 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     y_resampled = pd.Categorical(y_resampled, categories=list(scores_categories.values()), ordered=True)
     model = RandomForestClassifier(random_state=20).fit(x_resampled, y_resampled)
     shap_values = TreeExplainer(model).shap_values(x_resampled)[1]
+
+    # The categories are ordered so tha the summary plot makes sense, the bar on the right represents the increment
+    # of a feature value according to the feature order, and SHAP value is how far an observation is to their mean.
     fig = plt.figure()
     summary_plot(shap_values, x_resampled, show=False, class_names=list(scores_categories.values()))
     ax = fig.gca()
@@ -184,6 +186,11 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     print('Figures saved on figures/{}/{}/'.format(folder, sampling_method))
 
 
+# The following lines removes a matplotlib warning that pops out when multiple figures are being generated.
+mpl.rcParams['figure.max_open_warning'] = 0
+# The usual categories are being created, and so combinations of the dictionaries and the name of the categorical
+# variable are being composed. Some sampling methods are also used to test differences, although the filtered
+# dataset obtained the best features based on a non-balanced dataset, using any of these sampling methods.
 N_FEATURES = 5
 MCE_categories = {2: 'Insuficiente', 3: 'Regular', 4: 'Bueno', 5: 'Excelente'}
 PSI_categories = {0: 'Negativo', 1: 'Positivo'}

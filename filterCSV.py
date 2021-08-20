@@ -1,10 +1,16 @@
+# Author: Milton Candela (https://github.com/milkbacon)
+# Date: August 2021
+
+# The following code creates a filtered CSV, according to the importance of the features to the target variable using
+# RandomForestRegressor, even though no sampling technique was employed to solve the class imbalance, this was due to
+# the fact that a regression approach was taken rather than a classification. The dataset is saved as a CSV file inside
+# the "processed" folder, with the top 100 features and their respective information variables.
+
 import numpy as np
 import pandas as pd
 
-# Sklearn
 from collections import Counter
 from sklearn.ensemble import RandomForestRegressor
-from imblearn.over_sampling import SMOTE
 
 np.seterr(divide='ignore', invalid='ignore')
 
@@ -32,7 +38,6 @@ def filter_csv(metric, n_features=100):
     # The desired target variable is popped form the main DataFrame and information variables are removed from it.
     y = x.pop(metric)
     x = x.drop(['ID', 'Take'], axis=1).iloc[:, :-3].astype(np.float32)
-    # x, y = SMOTE(random_state=50).fit_resample(x, y)
 
     # A correlation matrix is done, to remove highly correlated features, which commonly appear when feature generation.
     corr_matrix = x.corr().abs()
@@ -48,19 +53,17 @@ def filter_csv(metric, n_features=100):
         print(round(seed/MAX_ITER * 100, 2), '% ...')
         model = RandomForestRegressor(random_state=seed).fit(x, y)
         df_results = df_results.append(dict(zip(list(x.columns), model.feature_importances_)), ignore_index=True)
-    print(df_results.head())
     s = df_results.sum().sort_values(ascending=False)
-    print(s)
 
-    # s = pd.Series(index=x.columns, data=[np.abs(np.corrcoef(x[feature], y)[0][1]) for feature in x.columns])\
-    #     .sort_values(ascending=False)
-    # print(s)
-
+    # The best n_features are being used to create the filtered DataFrame, which also includes "df_info" in order to
+    # use it on next experiments and tests, instead of loading the whole dataset of combined features.
     x = pd.concat([x.loc[:, list(s.index[:n_features])], df_info], axis=1)
     x.to_csv('processed/filtered_{}.csv'.format(metric), index=False)
 
 
+# The following constants are being created: NOT_VALID_IDS (which are students who dropped from the experiment) and
+# MAX_ITER, that would be used as the number of iterations made for our feature selection process.
 NOT_VALID_IDS = ['EJ01', 'ST02']
 MAX_ITER = 25
-filter_csv('MCE_Score')
-# filter_csv('PSI_Score')
+for score in ['MCE_Score', 'PSI_Score']:
+    filter_csv(score)

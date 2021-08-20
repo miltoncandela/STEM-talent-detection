@@ -6,6 +6,7 @@
 # create a K-means model which unifies all the biometric data into a single class.
 
 # The processed DataFrame is read, and so target variables would be dropped, as a new class would be made.
+
 import pandas as pd
 import numpy as np
 

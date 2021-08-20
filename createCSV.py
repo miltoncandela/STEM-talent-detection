@@ -1,5 +1,5 @@
 # Author: Milton Candela (https://github.com/milkbacon)
-# Date: August 2021
+# Date: July 2021
 
 # The following code creates a CSV file from processed data, this data corresponds to data from three different
 # biometrics, which are electroencephalogram (EEG), wristband with electrocardiogram (ECG) features, and a Computer
@@ -9,6 +9,7 @@
 
 # EEG and ECG (PPG): Median of each features on 5 minute windows.
 # CV: Probability distribution for each possible emotion, on 5 minute windows.
+
 import copy
 
 from sklearn.preprocessing import StandardScaler

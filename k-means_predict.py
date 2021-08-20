@@ -1,5 +1,5 @@
 # Author: Milton Candela (https://github.com/milkbacon)
-# Date: August 2021
+# Date: July 2021
 
 # The following code takes the created model in "k-means.py" and predicts the class on unlabeled data. These unlabeled
 # data would be our known classes, such as the MCE or PSI score, although it could be used for any information variable,
