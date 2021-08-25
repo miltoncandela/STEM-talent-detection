@@ -74,33 +74,25 @@ def get_df(device, folder):
     """
 
     # The CSV files are listed, and so it creates a list of files from which a blank dataframe is initialized.
-    global df_temp
-    global df
-
     path = 'data/' + device + '/' + folder + '/'
     file_list = os.listdir(path)
+    header = None if device == 'EEG - Engagement' else 0
 
-    if device == 'EEG - Engagement':
-        df = pd.read_csv(path + file_list[0], na_values='--', nrows=0, header=None)
-    elif device == 'Empatica' or device == 'Emotions':
-        df = pd.read_csv(path + file_list[0], na_values='--', nrows=0)
-    df = pd.DataFrame(columns=list(df.columns) + ['ID', 'Take', 'Session'])
+    df_file = pd.read_csv(path + file_list[0], na_values='--', nrows=0, header=header)
+    columns = list(df_file.columns) + ['ID', 'Take', 'Session']
+    df_file = pd.DataFrame(columns=columns)
 
     # The following for loop iterates over all the CSV files, concatenating a temporal DataFrame with the main, blank
     # DataFrame. It is worth noting that the DataFrame keeps track of the CSV file which is read, such as: the kid's ID
     # kid; Take; and Session, this is important because the target variables would be joined using these data.
     for i, file in enumerate(file_list):
-        if device == 'EEG - Engagement':
-            df_temp = pd.read_csv(path + file_list[0], na_values='--', header=None)
-        elif device == 'Empatica' or device == 'Emotions':
-            df_temp = pd.read_csv(path + file_list[0], na_values='--')
-        # df_temp = pd.read_csv(path + file, na_values='--')
-        df_temp['ID'], df_temp['Take'], df_temp['Session'] = (file[0:4], file[8], file[10])
-        df = pd.concat([df, df_temp], ignore_index=True)
+        df_file_temp = pd.read_csv(path + file_list[0], na_values='--', header=header)
+        df_file_temp['ID'], df_file_temp['Take'], df_file_temp['Session'] = (file[0:4], file[8], file[10])
+        df_file = pd.concat([df_file, df_file_temp], ignore_index=True)
 
-    df.dropna(axis=1, how='any', inplace=True)
-    df.reset_index(drop=True, inplace=True)
-    return df
+    df_file.dropna(axis=1, how='any', inplace=True)
+    df_file.reset_index(drop=True, inplace=True)
+    return df_file
 
 
 def get_df_takes(device, folders):
@@ -123,7 +115,7 @@ def get_df_takes(device, folders):
     # The following if-clause is specific on the EEG device, because the data on the CSV file is non-labeled, and so
     # their columns must be named based on the signals that they represent:
     # 7 channels for each spectral signal [Alpha, Low_Beta, High_Beta, Gamma, Theta] (35)
-    # 1 value for each combined feature [Fatigue, Load] (2)
+    # 1 value for each combined feature [Fatigue, Load, Engagement Index] (3)
     # With a total of 37 column names, further on the if statement, the number of rows on the EEG DataFrame is also
     # subset on the first n observations, where n corresponds to the number of rows in the Empatica DataFrame, this was
     # done due to failure and error in the biometric device, and so it would be under-sampled to the Empatica device.
@@ -137,18 +129,17 @@ def get_df_takes(device, folders):
 
     # The final DataFrame is sorted based on the ID variables, which are our data indicators
     df = df.sort_values(by=['ID', 'Take', 'Session'])
-    df.dropna(axis=1, how='any', inplace=True)
-    df.reset_index(drop=True, inplace=True)
+    print(df.shape)
+    df = df.dropna(axis=1, how='any').reset_index(drop=True)
+    print(df.shape)
     return df
 
 
 # Based on each biometric device sub-folder, a DataFrame is extracted using first, second, third and fourth take.
-dfPPG = get_df_takes('Empatica', ['Resultados Primera Toma', 'Resultados Segunda Toma',
-                                  'Resultados Tercera Toma', 'Resultados Cuarta Toma'])
-dfEEG = get_df_takes('EEG - Engagement', ['Toma 1', 'Toma 2', 'Toma 3', 'Toma 4'])
+dfPPG = get_df_takes('Empatica', ['Resultados Primera Toma', 'Resultados Segunda Toma', 'Resultados Cuarta Toma'])
+dfEEG = get_df_takes('EEG', ['Toma 1', 'Toma 2', 'Toma 4'])
 dfCV = get_df_takes('Emotions', ['Resultados Primera Toma DLIB', 'Resultados Segunda Toma DLIB',
-                                 'Resultados Tercera Toma DLIB', 'Resultados Cuarta Toma DLIB'])
-
+                                 'Resultados Cuarta Toma DLIB'])
 
 def feature_generation(df):
     """
@@ -207,7 +198,9 @@ def feature_generation(df):
 
     # The generated feature names are placed, infinity values from columns are removed, and the DF is returned.
     df_features.columns = names
+    print(df_features.shape)
     df_features = df_features.replace([np.inf, -np.inf], np.nan).dropna(axis='columns', how='any')
+    print(df_features.shape)
     return df_features
 
 
@@ -300,7 +293,7 @@ def set_scores(df, col_name, score_dict):
 
     :param pd.DataFrame df: Scaled biometric DataFrame, with the same granularity across devices.
     :param string col_name: Name of the score column that would be assigned on the given DataFrame.
-    :param dict score_dict: Dictionary of scores, with the kid ID as keys, and a list of scores on the format
+    :param dictionary score_dict: Dictionary of scores, with the kid ID as keys, and a list of scores on the format
      [Programming, Robotics, 3D Design] as values for each key.
     :return pd.DataFrame: Given DataFrame with a new, score column.
     """
@@ -337,5 +330,5 @@ comb_df['MCE_Category'] = pd.cut(comb_df.MCE_Score, [0, 1, 2, 3, 4, 5], labels=M
 comb_df['PSI_Category'] = ['Positivo' if score > 0 else 'Negativo' for score in comb_df.PSI_Score]
 
 # The DataFrame is exported and saved into the "processed" folder, it is further printed for visualization purposes.
-comb_df.to_csv('processed/combined_df.csv', index=False)
+comb_df.to_csv('processed/combined_df_2.csv', index=False)
 print(comb_df)

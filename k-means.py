@@ -1,5 +1,5 @@
 # Author: Milton Candela (https://github.com/milkbacon)
-# Date: August 2021
+# Date: July 2021
 
 # The following code uses a processed CSV file from the "processed" folder, created using the "createCSV.py" file,
 # which joins the biometric devices and the predicted scores. Only source variables would be used, in order to
