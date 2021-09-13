@@ -34,7 +34,7 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
 
     :param string folder: Name of the folder where the plots would be stored, which is the same as the DataFrame column.
     :param dictionary scores_categories: Label encoding from numeric to categorical variable.
-    :param sampling_method: Type of resampling method being used.
+    :param string sampling_method: Type of resampling method being used.
     """
 
     # Data Extraction #
@@ -82,7 +82,7 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
 
         :param string feature: Name of the feature, could be a combined feature, as splits using underscore "_" and
         hyphen "-" are being made to take the first feature (combined features are done on the same device).
-        :return: A color in Hexadecimal that would be taken into the bar plot, to identify each feature's device.
+        :return string: A color in Hexadecimal that would be taken into the bar plot, to identify each feature's device.
         """
 
         feature = feature.split('_')[0].split('-')[0]
@@ -91,11 +91,11 @@ def figure_generator(folder, scores_categories, sampling_method='None'):
     # A bar plot on feature importance according to the Gini index computed by the RF trained model, is generated.
     fig = plt.figure()
     plt.bar(s.index[:25], s[:25], color=[color_bar(col) for col in list(s.index)])
-    plt.xlabel('Feature')
-    plt.ylabel("Importance")
-    plt.title('Top 25 most important features when predicting {} category'.format(folder[:3]))
+    plt.xlabel('Característica')
+    plt.ylabel("Importancia")
+    plt.title('Top 25 características más importantes al predecir el puntaje de {}'.format(folder[:3]))
     plt.xticks(rotation=90)
-    plt.legend(handles=[mpatches.Patch(color='#FACF5A', label='Emotions'),
+    plt.legend(handles=[mpatches.Patch(color='#FACF5A', label='Emociones'),
                         mpatches.Patch(color='#455D7A', label='EEG'),
                         mpatches.Patch(color='#F95959', label='Empatica')])
     fig.savefig('figures/{}/{}/top_features_bar_plot.png'.format(folder, sampling_method), bbox_inches='tight')

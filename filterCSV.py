@@ -69,7 +69,7 @@ def filter_csv(metric, n_features=100):
     # The best n_features are being used to create the filtered DataFrame, which also includes "df_info" in order to
     # use it on next experiments and tests, instead of loading the whole dataset of combined features.
     x = pd.concat([x.loc[:, list(s.index[:n_features])], df_info], axis=1)
-    x.to_csv('processed/filtered_{}_3.csv'.format(metric), index=False)
+    x.to_csv('processed/filtered_{}.csv'.format(metric), index=False)
 
 
 # The following constants are being created: NOT_VALID_IDS (which are students who dropped from the experiment) and

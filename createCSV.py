@@ -88,10 +88,12 @@ def get_df(device, folder):
     for i, file in enumerate(file_list):
         df_file_temp = pd.read_csv(path + file_list[0], na_values='--', header=header)
         df_file_temp['ID'], df_file_temp['Take'], df_file_temp['Session'] = (file[0:4], file[8], file[10])
+        if device == 'EEG' or device == 'EEG - Engagement':
+            df_file_temp = df_file_temp.iloc[range(dfPPG[(dfPPG.ID == file[0:4]) &
+                                                         (dfPPG.Take == file[8]) &
+                                                         (dfPPG.Session == file[10])].shape[0]), :]
         df_file = pd.concat([df_file, df_file_temp], ignore_index=True)
-
-    df_file.dropna(axis=1, how='any', inplace=True)
-    df_file.reset_index(drop=True, inplace=True)
+    df_file = df_file.dropna(axis=1, how='any').reset_index(drop=True)
     return df_file
 
 
@@ -125,21 +127,26 @@ def get_df_takes(device, folders):
         signals = ['Alpha', 'LowBeta', 'HighBeta', 'Gamma', 'Theta']
         eeg_columns = [signal + '_' + channel for signal in signals for channel in channels] + combined_features
         df.columns = eeg_columns + ['ID', 'Take', 'Session']
-        df = df.iloc[range(dfPPG.shape[0]), :]
 
     # The final DataFrame is sorted based on the ID variables, which are our data indicators
     df = df.sort_values(by=['ID', 'Take', 'Session'])
     print(df.shape)
+    col1 = set(list(df.columns))
+    if device == 'Empatica':
+        print(df['pnn50', 's', 'sdsd', 'lf/hf', 'sd1', 'sd2', 'lf_nu', 'sd1/sd2', 'pnn20', 'rmssd'].head())
     df = df.dropna(axis=1, how='any').reset_index(drop=True)
     print(df.shape)
+    print(col1 - set(list(df.columns)))
     return df
 
 
 # Based on each biometric device sub-folder, a DataFrame is extracted using first, second, third and fourth take.
-dfPPG = get_df_takes('Empatica', ['Resultados Primera Toma', 'Resultados Segunda Toma', 'Resultados Cuarta Toma'])
-dfEEG = get_df_takes('EEG', ['Toma 1', 'Toma 2', 'Toma 4'])
+dfPPG = get_df_takes('Empatica', ['Resultados Primera Toma', 'Resultados Segunda Toma',
+                                  'Resultados Tercera Toma', 'Resultados Cuarta Toma'])
+dfEEG = get_df_takes('EEG - Engagement', ['Toma 1', 'Toma 2', 'Toma 3', 'Toma 4'])
 dfCV = get_df_takes('Emotions', ['Resultados Primera Toma DLIB', 'Resultados Segunda Toma DLIB',
-                                 'Resultados Cuarta Toma DLIB'])
+                                 'Resultados Tercera Toma DLIB', 'Resultados Cuarta Toma DLIB'])
+
 
 def feature_generation(df):
     """
@@ -222,24 +229,44 @@ def combine_dfs(df_ppg, df_eeg, df_cv):
     df_names = df_ppg[['ID', 'Take', 'Session']]
 
     # EEG and PPG
-    def df_to_prom(df, device):
+    def df_to_prom(df, device, scaling='id'):
         """
         This function receives either the EEG or PPG DataFrame, scales their values and applied the sigmoid function,
         and so the domain resembles the one from the CV algorithm's probability distribution. The standard scaler
         is saved on the "processed" folder, in case of needing to rescale the data to their original values.
+        Conversely, the DataFrame could be scaled by each ID, in that case, the scaler is not saved as multiple
+        scalers are being used to accomplish the task, the way scaling goes is defined by "scaling" parameter.
 
         :param pd.DataFrame df: EEG or PPG, non-scaled, raw DataFrame.
         :param string device: Type of device, as identification for the saved scaler.
+        :param string scaling: Either "id" or "all", depends on the scaling that is being applied.
         :return pd.DataFrame: Scaled DataFrame, with the sigmoid function applied to each datum.
         """
 
         df.drop(['ID', 'Take', 'Session'], axis=1, inplace=True)
         df = feature_generation(df)
-        columns = df.columns
-        scaler = StandardScaler().fit(df)
-        dump(scaler, open('processed/' + device + '_scaler.pkl', 'wb'))
-        df = pd.DataFrame(scaler.transform(df), columns=columns).applymap(lambda x: 1 / (1 + np.exp(x)))
-        return df
+
+        # The following if statement does not takes into account the ID of each person, and standardizes the values
+        # regarding of this factor, and then saves the scales for latter use in the unsupervised-learning.
+        if scaling == 'all':
+            scaler = StandardScaler().fit(df)
+            dump(scaler, open('processed/' + device + '_scaler.pkl', 'wb'))
+            df = pd.DataFrame(scaler.transform(df), columns=df.columns).applymap(lambda x: 1 / (1 + np.exp(-x)))
+            return df
+
+        # On the other hand, the scaling could be done by each ID or each person, we must then create a new DataFrame
+        # called "df_scaled", on which each unique ID is iterated over a for loop and concatenating the new data
+        # on the scaled DataFrame, thus transforming the non-scaled data into scaled data for each ID.
+        elif scaling == 'id':
+            df_scaled = pd.DataFrame(columns=df.columns)
+            df['ID'] = df_names['ID']
+            for cid in df.ID.unique():
+                df_scaled = pd.concat([df_scaled,
+                                       pd.DataFrame(StandardScaler().fit_transform(df[df.ID == cid].drop('ID', axis=1)),
+                                                    columns=df_scaled.columns).applymap(lambda x: 1 / (1 + np.exp(-x)))],
+                                      ignore_index=True)
+            return df_scaled.reset_index(drop=True)
+
     df_ppg = df_to_prom(df_ppg, 'PPG')
     df_eeg = df_to_prom(df_eeg, 'EEG')
 
@@ -276,9 +303,7 @@ def combine_dfs(df_ppg, df_eeg, df_cv):
 
     # All the transformated DataFames are concatenated on one, as their rows are equal, the information variables
     # (included on df_names) are also concatenated, NANs are removed and the index is reset.
-    dfcomb = pd.concat([df_ppg, df_eeg, proportions, df_names], axis=1)
-    dfcomb.dropna(axis=1, how='any', inplace=True)
-    dfcomb.reset_index(drop=True, inplace=True)
+    dfcomb = pd.concat([df_ppg, df_eeg, proportions, df_names], axis=1).dropna(axis=1, how='any').reset_index(drop=True)
     return dfcomb
 
 
@@ -330,5 +355,5 @@ comb_df['MCE_Category'] = pd.cut(comb_df.MCE_Score, [0, 1, 2, 3, 4, 5], labels=M
 comb_df['PSI_Category'] = ['Positivo' if score > 0 else 'Negativo' for score in comb_df.PSI_Score]
 
 # The DataFrame is exported and saved into the "processed" folder, it is further printed for visualization purposes.
-comb_df.to_csv('processed/combined_df_2.csv', index=False)
+comb_df.to_csv('processed/combined_df.csv', index=False)
 print(comb_df)
