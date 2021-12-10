@@ -4,6 +4,7 @@
 # The following code explores both target variables categories (MCE, PSI), using a processed CSV file from the
 # "processed" folder, created using the "createCSV.py" file, which joins the biometric devices and the predicted scores.
 # It creates multiple visualization tools, in order to extract data insights and do a quick feature selection process.
+# WARINING: Numpy == 1.21.2, as numpy == 1.19.5 won't work when using SHAP library.
 
 import os
 
