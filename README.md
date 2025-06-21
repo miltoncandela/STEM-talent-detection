@@ -1,6 +1,6 @@
 ## Citation
 
-If you find anything in the paper or repository useful, please consider citing:
+If you find anything useful in the [Detecting Change in Engineering Interest in Children through Machine Learning using Biometric Signals (IEEE, 2021)](https://doi.org/10.1109/IEEECONF53024.2021.9733772) conference paper, the [DNeural Signatures of STEM Learning and Interest in Youth (IEEE, 2021)](https://doi.org/10.1016/j.actpsy.2025.104949) journal paper, the repository, please consider citing:
 ```
 @inproceedings{Olivas2021,
   title = {Detecting Change in Engineering Interest in Children through Machine Learning using Biometric Signals},
