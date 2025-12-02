@@ -1,6 +1,6 @@
 ## Citation
-
 If you find anything useful in the journal article, conference proceedings, or repository, please consider citing:
+
 ```
 @article{CandelaLeal2025,
   title = {Neural signatures of STEM learning and interest in youth},
@@ -33,6 +33,6 @@ If you find anything useful in the journal article, conference proceedings, or r
 > **Neural Signatures of STEM Learning and Interest in Youth**<br>
 > Acta Psychologica, 255(104949), 104949. https://doi.org/10.1016/j.actpsy.2025.104949
 
-> Olivas-Martinez G, Candela-Leal MO, Ocampo-Alvarado JC, Acosta-Soto LF, Aguilar-Herrera AJ, Delgado-Jimenez EA, Alanis-Espinosa M, Ramirez-Moreno MA, & Lozoya-Santos JJ (2021)<br>
+> Olivas G, Candela M, Ocampo J, Acosta L, Aguilar A, Delgado E, Alanis M, Ramirez M, Lozoya J, Murrieta J, & Ramirez R (2021)<br>
 > **Detecting Change in Engineering Interest in Children through Machine Learning using Biometric Signals**<br>
 > Proceedings of the Machine Learning-Driven Digital Technologies for Educational Innovation Workshop. https://doi.org/10.1109/IEEECONF53024.2021.9733772
